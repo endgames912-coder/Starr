@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<title>Starr — удаление фона</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27><text y=%27.9em%27 font-size=%2790%27>⭐</text></svg>">
+<link href="https://fonts.googleapis.com/css2?family=Russo+One&display=swap" rel="stylesheet">
+<style>
+:root {
+  --black:#000000; --lime:#BEF532; color-scheme: dark;
+  --checker: conic-gradient(#333 25%, #444 0 50%, #333 0 75%, #444 0) 0 0/20px 20px;
+  --pv: var(--checker);
+  --font: "Russo One", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  box-sizing: border-box;
+}
+* { box-sizing: border-box; }
+body {
+  margin:0; min-height:100vh; background:var(--black); color:var(--lime);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  padding: max(24px, env(safe-area-inset-top)) 20px max(24px, env(safe-area-inset-bottom));
+  display:flex; flex-direction:column; align-items:center; gap:18px;
+}
+h1, h2, .btn { font-family: var(--font); font-weight:400; }
+h1 { margin:0; font-size:42px; letter-spacing:3px; }
+
+/* ===== Заставка по мотивам видео (≈5,6 с) ===== */
+#intro { position:fixed; inset:0; z-index:100; background:#000; display:flex; align-items:center; justify-content:center;
+  animation: introOut .45s ease 5.2s forwards; }
+@keyframes introOut { to { opacity:0; visibility:hidden; } }
+#intro .big { position:absolute; font-size:160px; line-height:1; color:var(--lime); animation: bigStar 3.5s linear forwards; }
+@keyframes bigStar {
+  0%{transform:scale(.1)} 6%{transform:scale(1.12)} 9%,18%{transform:scale(1) rotate(0)}
+  19%{transform:scale(1.08) rotate(-22deg)} 22%,40%{transform:scale(1) rotate(0)}
+  41%{transform:scale(1.1) rotate(16deg)} 44%,62%{transform:scale(1) rotate(0)}
+  63%{transform:scale(1.1) rotate(-28deg)} 66%,82%{transform:scale(1) rotate(0)}
+  99%{transform:scale(.1) rotate(540deg); opacity:1} 100%{transform:scale(.05) rotate(560deg); opacity:0}
+}
+#intro .word { position:relative; display:flex; gap:2px; font-family:var(--font); font-size:min(21vw, 96px); letter-spacing:2px; color:var(--lime); }
+#intro .word span { display:inline-block; opacity:0; animation: letter .45s cubic-bezier(.3,1.4,.5,1) var(--d) both; }
+@keyframes letter { 0%{opacity:0; transform:rotate(-18deg) scale(.3)} 55%{opacity:1; transform:rotate(7deg) scale(1.35)} 100%{opacity:1; transform:none} }
+#intro .mini { position:absolute; left:50%; top:50%; font-style:normal; font-size:.6em; opacity:0; margin:-.35em 0 0 -.3em; animation: mini .3s ease 3.3s forwards; }
+@keyframes mini { 0%{opacity:0; transform:scale(0) rotate(-180deg)} 40%,80%{opacity:1; transform:scale(1) rotate(0)} 100%{opacity:0} }
+
+/* ===== Интерфейс ===== */
+#snd { position:fixed; top:0; right:0; z-index:50; background:none; border:0; font-size:22px; cursor:pointer;
+  padding: calc(env(safe-area-inset-top, 0px) + 12px) 16px 12px; }
+#star { font-size:76px; line-height:1; color:#ffff55; animation:pulse 2.8s ease-in-out infinite; }
+#star.spin { animation:wobble 1.4s cubic-bezier(.5,0,.3,1) infinite; }
+@keyframes pulse { 0%,100%{transform:scale(.9);opacity:.6} 50%{transform:scale(1.1);opacity:1} }
+@keyframes wobble { 0%{transform:rotate(0) scale(1)} 50%{transform:rotate(360deg) scale(.6)} 100%{transform:rotate(720deg) scale(1)} }
+.sub { margin:-8px 0 0; opacity:.75; text-align:center; }
+.btn { display:inline-block; border:0; cursor:pointer; text-decoration:none; background:var(--lime); color:var(--black);
+  font-size:18px; padding:14px 32px; border-radius:50px; transition: transform .25s cubic-bezier(.34,1.8,.64,1); }
+.btn:active { transform:scale(.9); }
+.btn.dark { background:var(--black); color:var(--lime); }
+
+.drop { position:relative; width:min(420px,100%); padding:36px 20px; text-align:center; cursor:pointer;
+  border:2px dashed var(--lime); border-radius:28px; display:flex; flex-direction:column; gap:8px; align-items:center;
+  transition: transform .3s cubic-bezier(.34,1.8,.64,1), background .2s; animation: up .6s both; }
+.drop:hover, .drop.over { background:rgba(190,245,50,.1); transform:scale(1.03); }
+.drop:active { transform:scale(.96); }
+.drop b { font-family:var(--font); font-weight:400; font-size:22px; }
+.drop span { opacity:.65; font-size:14px; }
+.drop .plus { font-size:54px; line-height:1; animation:pulse 2.4s ease-in-out infinite; }
+.vh { position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer; font-size:0; }
+[hidden] { display:none !important; }
+
+#work { width:min(420px,100%); display:flex; flex-direction:column; gap:12px; align-items:center; animation: up .5s both; }
+.preview { position:relative; width:100%; border-radius:24px; overflow:hidden; background:#111; }
+.preview img { display:block; width:100%; max-height:380px; object-fit:contain; filter:saturate(.6) brightness(.8); }
+.scan { position:absolute; left:0; right:0; height:4px; background:var(--lime); box-shadow:0 0 24px 8px rgba(190,245,50,.7); animation:scan 1.6s ease-in-out infinite alternate; }
+@keyframes scan { from{top:0} to{top:calc(100% - 4px)} }
+.progress { width:100%; height:6px; border-radius:6px; background:#222; overflow:hidden; }
+#bar { height:100%; width:0; background:var(--lime); transition:width .3s; }
+#status { min-height:1.4em; text-align:center; }
+
+#results { display:flex; flex-direction:column; align-items:center; gap:18px; width:100%; max-width:900px; }
+.card { background:var(--lime); color:var(--black); border-radius:28px; padding:20px; text-align:center;
+  display:flex; flex-direction:column; align-items:center; gap:14px; width:100%; max-width:420px; animation: up .6s cubic-bezier(.2,.9,.3,1) both; }
+@keyframes up { from { opacity:0; transform:translateY(40px) scale(.85); } }
+.card h2 { margin:0; font-size:24px; }
+.cards { display:flex; flex-wrap:wrap; justify-content:center; gap:20px; width:100%; }
+.cards .card:nth-child(1) { animation-delay:.15s; } .cards .card:nth-child(2) { animation-delay:.3s; }
+.card img.res { width:100%; max-height:320px; object-fit:contain; border-radius:16px; }
+#subj img.res { background:var(--pv); } #bg img.res { background:var(--checker); }
+
+.cmp { position:relative; width:100%; border-radius:16px; overflow:hidden; --p:50%; touch-action:pan-y; }
+.cmp > img { display:block; width:100%; max-height:380px; object-fit:contain; }
+.cmp .cut { position:absolute; inset:0; background:var(--pv); clip-path: inset(0 calc(100% - var(--p)) 0 0); }
+.cmp .cut img { width:100%; height:100%; object-fit:contain; display:block; }
+.cmp .line { position:absolute; top:0; bottom:0; left:var(--p); width:3px; margin-left:-1.5px; background:var(--black); }
+.cmp .line::after { content:"◀▶"; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:var(--black); color:var(--lime);
+  font-size:11px; padding:8px 6px; border-radius:20px; letter-spacing:-2px; }
+.cmp input { position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:ew-resize; margin:0; }
+.chips { display:flex; gap:10px; }
+.chip { width:34px; height:34px; border-radius:50%; border:3px solid var(--black); cursor:pointer; padding:0; transition:transform .25s cubic-bezier(.34,1.8,.64,1); }
+.chip[aria-pressed="true"] { transform:scale(1.3); outline:2px solid var(--black); outline-offset:2px; }
+.note { font-size:13px; opacity:.6; text-align:center; max-width:420px; }
+@media (prefers-reduced-motion: reduce) { #intro { display:none; } }
+</style>
+</head>
+<body>
+  <div id="intro" aria-hidden="true">
+    <div class="big">★</div>
+    <div class="word">
+      <span style="--d:3.25s">S</span><span style="--d:3.3s">T</span><span style="--d:3.5s">A</span><span style="--d:3.55s">R</span><span style="--d:3.6s">R</span>
+      <i class="mini">★</i>
+    </div>
+  </div>
+
+  <button id="snd" aria-label="Звук вкл/выкл">🔊</button>
+  <div id="star">★</div>
+  <h1>STARR</h1>
+  <p class="sub">Вырезает персонажа и отдельно сохраняет фон</p>
+
+  <label class="drop" id="drop">
+    <div class="plus">＋</div>
+    <b>Выбрать фото</b>
+    <span>или перетащите сюда, или вставьте из буфера</span>
+    <input id="file" type="file" accept="image/*" class="vh">
+  </label>
+
+  <section id="work" hidden>
+    <div class="preview"><img id="orig" alt="Ваше фото"><div class="scan"></div></div>
+    <div class="progress"><div id="bar"></div></div>
+    <div id="status"></div>
+  </section>
+
+  <section id="results" hidden>
+    <div class="card">
+      <h2>ДО / ПОСЛЕ</h2>
+      <div class="cmp" id="cmp">
+        <img id="cmpOrig" alt="Оригинал">
+        <div class="cut"><img id="cmpCut" alt="Без фона"></div>
+        <div class="line"></div>
+        <input type="range" min="0" max="100" value="50" aria-label="Сравнение до и после">
+      </div>
+      <div class="chips" id="chips">
+        <button class="chip" data-bg="var(--checker)" style="background:var(--checker)" aria-pressed="true" aria-label="Прозрачный"></button>
+        <button class="chip" data-bg="#BEF532" style="background:#BEF532" aria-pressed="false" aria-label="Лайм"></button>
+        <button class="chip" data-bg="#ffffff" style="background:#fff" aria-pressed="false" aria-label="Белый"></button>
+        <button class="chip" data-bg="#000000" style="background:#000" aria-pressed="false" aria-label="Чёрный"></button>
+      </div>
+    </div>
+    <div class="cards">
+      <div class="card" id="subj"><h2>ПЕРСОНАЖ</h2><img class="res" alt="Персонаж без фона"><a class="btn dark" download="starr_character.png">Скачать</a></div>
+      <div class="card" id="bg"><h2>ФОН</h2><img class="res" alt="Фон без персонажа"><a class="btn dark" download="starr_background.png">Скачать</a></div>
+    </div>
+    <button class="btn" id="again">Новое фото</button>
+  </section>
+
+  <p class="note">Всё обрабатывается прямо на вашем устройстве, фото никуда не отправляются. При первом запуске скачивается нейросеть (около 40 МБ), потом работает быстрее.</p>
+
+<script type="module">
+const $ = s => document.querySelector(s);
+
+/* ===== Звуки: синтезируются на лету, файлов не нужно ===== */
+const AC = window.AudioContext || window.webkitAudioContext;
+let ac, muted = false;
+try { muted = localStorage.getItem("starr-mute") === "1"; } catch (e) {}
+function ctx() {
+  if (!ac && AC) ac = new AC();
+  if (ac && ac.state === "suspended") ac.resume().catch(() => {});
+  return ac;
+}
+function tone(f0, f1, d, type = "sine", v = 0.15, delay = 0) {
+  if (muted) return;
+  const c = ctx();
+  if (!c || c.state !== "running") return;
+  const t = c.currentTime + delay, o = c.createOscillator(), g = c.createGain();
+  o.type = type;
+  o.frequency.setValueAtTime(f0, t);
+  o.frequency.exponentialRampToValueAtTime(f1, t + d);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(v, t + 0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+  o.connect(g).connect(c.destination);
+  o.start(t); o.stop(t + d + 0.02);
+}
+const sfx = {
+  pop: () => tone(300, 900, 0.14, "triangle", 0.2),
+  twitch: () => tone(220, 90, 0.07, "square", 0.07),
+  whoosh: () => tone(1000, 120, 0.5, "sine", 0.15),
+  letter: i => tone(380 + i * 90, 380 + i * 90, 0.1, "triangle", 0.15),
+  chime: () => { tone(880, 880, 0.5, "sine", 0.12); tone(1320, 1320, 0.6, "sine", 0.1, 0.08); },
+  tick: () => tone(700, 500, 0.05, "sine", 0.1),
+  done: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, f, 0.25, "triangle", 0.15, i * 0.09)),
+  err: () => tone(160, 80, 0.3, "sawtooth", 0.12)
+};
+addEventListener("pointerdown", ctx, { once: true });
+document.addEventListener("click", e => { if (e.target.closest(".btn, .chip, .drop")) sfx.tick(); });
+
+const snd = $("#snd");
+const paintSnd = () => snd.textContent = muted ? "🔇" : "🔊";
+paintSnd();
+snd.onclick = () => {
+  muted = !muted; paintSnd();
+  try { localStorage.setItem("starr-mute", muted ? "1" : "0"); } catch (e) {}
+  if (!muted) { ctx(); setTimeout(sfx.pop, 80); }
+};
+
+// Звуки заставки совпадают с анимацией
+[[0, sfx.pop], [660, sfx.twitch], [1430, sfx.twitch], [2200, sfx.twitch], [2900, sfx.whoosh],
+ [3250, () => sfx.letter(0)], [3300, () => sfx.letter(1)], [3500, () => sfx.letter(2)],
+ [3550, () => sfx.letter(3)], [3600, () => sfx.letter(4)], [3900, sfx.chime]
+].forEach(([ms, fn]) => setTimeout(fn, ms));
+setTimeout(() => document.getElementById("intro")?.remove(), 5800);
+
+/* ===== Приложение ===== */
+const star = $("#star"), status = $("#status"), bar = $("#bar"), results = $("#results"),
+      drop = $("#drop"), work = $("#work"), file = $("#file");
+let ticker;
+
+async function run(f) {
+  if (!f || !f.type.startsWith("image/")) return;
+  const origUrl = URL.createObjectURL(f);
+  $("#orig").src = origUrl;
+  results.hidden = true; drop.hidden = true; work.hidden = false;
+  star.classList.add("spin");
+  bar.style.width = "0"; status.textContent = "Готовлюсь…";
+  ticker = setInterval(sfx.tick, 700);
+  try {
+    const { removeBackground } = await import("https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.5.5/+esm");
+    const cut = await removeBackground(f, {
+      output: { format: "image/png" },
+      progress: (key, cur, total) => {
+        bar.style.width = Math.round((cur / total) * 100) + "%";
+        status.textContent = key.startsWith("fetch") ? "Загружаю нейросеть (один раз)…" : "Вырезаю фон…";
+      }
+    });
+    const bg = await makeBackground(f, cut);
+    const cutUrl = URL.createObjectURL(cut);
+    $("#cmpOrig").src = origUrl; $("#cmpCut").src = cutUrl;
+    show("#subj", cutUrl); show("#bg", URL.createObjectURL(bg));
+    work.hidden = true; results.hidden = false;
+    status.textContent = "";
+    sfx.done();
+  } catch (e) {
+    status.textContent = "Ошибка: " + e.message;
+    drop.hidden = false;
+    sfx.err();
+  } finally {
+    clearInterval(ticker);
+    star.classList.remove("spin");
+    file.value = "";
+  }
+}
+
+file.addEventListener("change", () => run(file.files[0]));
+addEventListener("paste", e => run([...(e.clipboardData?.files || [])][0]));
+["dragenter", "dragover"].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add("over"); }));
+["dragleave", "drop"].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.remove("over"); }));
+drop.addEventListener("drop", e => run(e.dataTransfer.files[0]));
+
+$("#again").onclick = () => { results.hidden = true; work.hidden = true; drop.hidden = false; status.textContent = ""; scrollTo({ top: 0, behavior: "smooth" }); };
+
+// Слайдер «до / после»
+$("#cmp input").addEventListener("input", e => $("#cmp").style.setProperty("--p", e.target.value + "%"));
+
+// Выбор фона под персонажем
+$("#chips").addEventListener("click", e => {
+  const b = e.target.closest(".chip");
+  if (!b) return;
+  document.querySelectorAll(".chip").forEach(c => c.setAttribute("aria-pressed", c === b));
+  results.style.setProperty("--pv", b.dataset.bg);
+});
+
+function load(blob) {
+  return new Promise((res, rej) => {
+    const img = new Image();
+    img.onload = () => res(img); img.onerror = rej;
+    img.src = URL.createObjectURL(blob);
+  });
+}
+
+// Фон = оригинал, у которого на месте персонажа прозрачная «дыра»
+async function makeBackground(orig, cut) {
+  const [a, b] = await Promise.all([load(orig), load(cut)]);
+  const c = document.createElement("canvas");
+  c.width = a.naturalWidth; c.height = a.naturalHeight;
+  const x = c.getContext("2d");
+  x.drawImage(a, 0, 0);
+  x.globalCompositeOperation = "destination-out";
+  x.drawImage(b, 0, 0, c.width, c.height);
+  return new Promise(r => c.toBlob(r, "image/png"));
+}
+
+function show(sel, url) {
+  const card = $(sel);
+  card.querySelector("img").src = url;
+  card.querySelector("a").href = url;
+}
+</script>
+</body>
+</html>
