@@ -222,14 +222,21 @@ async function run(f) {
   bar.style.width = "0"; status.textContent = "Готовлюсь…";
   ticker = setInterval(sfx.tick, 700);
   try {
-    const { removeBackground } = await import("https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.5.5/+esm");
-    const cut = await removeBackground(f, {
-      output: { format: "image/png" },
-      progress: (key, cur, total) => {
-        bar.style.width = Math.round((cur / total) * 100) + "%";
-        status.textContent = key.startsWith("fetch") ? "Загружаю нейросеть (один раз)…" : "Вырезаю фон…";
-      }
-    });
+    let lib;
+    try { lib = await import("https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.5.5/+esm"); }
+    catch (e) { throw new Error("не удалось загрузить библиотеку (проверьте интернет, отключите VPN или блокировщик)"); }
+    const progress = (key, cur, total) => {
+      bar.style.width = Math.round((cur / total) * 100) + "%";
+      status.textContent = key.startsWith("fetch") ? "Загружаю нейросеть (один раз)…" : "Вырезаю фон…";
+    };
+    // Пробуем основной источник модели, потом запасной
+    const mirrors = [undefined, "https://cdn.jsdelivr.net/npm/@imgly/background-removal-data@1.5.5/dist/"];
+    let cut, lastErr;
+    for (const publicPath of mirrors) {
+      try { cut = await lib.removeBackground(f, { publicPath, output: { format: "image/png" }, progress }); break; }
+      catch (e) { lastErr = e; bar.style.width = "0"; }
+    }
+    if (!cut) throw new Error("не удалось скачать нейросеть (" + lastErr.message + ")");
     const bg = await makeBackground(f, cut);
     const cutUrl = URL.createObjectURL(cut);
     $("#cmpOrig").src = origUrl; $("#cmpCut").src = cutUrl;
