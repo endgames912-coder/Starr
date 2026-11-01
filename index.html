@@ -231,13 +231,13 @@ async function run(f) {
       status.textContent = key.startsWith("fetch") ? "Загружаю нейросеть (один раз)…" : "Вырезаю фон…";
     };
     // Пробуем основной источник модели, потом запасной
-    const mirrors = [undefined, "https://cdn.jsdelivr.net/npm/@imgly/background-removal-data@1.5.5/dist/"];
-    let cut, lastErr;
+    const mirrors = [undefined, "https://unpkg.com/@imgly/background-removal-data@1.5.5/dist/", "https://cdn.jsdelivr.net/npm/@imgly/background-removal-data@1.5.5/dist/"];
+    let cut; const errs = [];
     for (const publicPath of mirrors) {
       try { cut = await lib.removeBackground(src, { publicPath, device: "cpu", model: "isnet_quint8", output: { format: "image/png" }, progress }); break; }
-      catch (e) { lastErr = e; bar.style.width = "0"; }
+      catch (e) { errs.push(e?.message || e?.type || String(e)); bar.style.width = "0"; }
     }
-    if (!cut) throw new Error("не удалось скачать нейросеть (" + lastErr?.message || lastErr?.type || lastErr + ")");
+    if (!cut) throw new Error("не удалось скачать нейросеть: " + errs.join(" | "));
     const bg = await makeBackground(src, cut);
     const cutUrl = URL.createObjectURL(cut);
     $("#cmpOrig").src = origUrl; $("#cmpCut").src = cutUrl;
