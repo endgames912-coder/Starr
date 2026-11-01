@@ -222,6 +222,7 @@ async function run(f) {
   bar.style.width = "0"; status.textContent = "Готовлюсь…";
   ticker = setInterval(sfx.tick, 700);
   try {
+    const src = await shrink(f);
     let lib;
     try { lib = await import("https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.5.5/+esm"); }
     catch (e) { throw new Error("не удалось загрузить библиотеку (проверьте интернет, отключите VPN или блокировщик)"); }
@@ -233,11 +234,11 @@ async function run(f) {
     const mirrors = [undefined, "https://cdn.jsdelivr.net/npm/@imgly/background-removal-data@1.5.5/dist/"];
     let cut, lastErr;
     for (const publicPath of mirrors) {
-      try { cut = await lib.removeBackground(f, { publicPath, output: { format: "image/png" }, progress }); break; }
+      try { cut = await lib.removeBackground(src, { publicPath, device: "cpu", model: "isnet_quint8", output: { format: "image/png" }, progress }); break; }
       catch (e) { lastErr = e; bar.style.width = "0"; }
     }
-    if (!cut) throw new Error("не удалось скачать нейросеть (" + lastErr.message + ")");
-    const bg = await makeBackground(f, cut);
+    if (!cut) throw new Error("не удалось скачать нейросеть (" + lastErr?.message || lastErr?.type || lastErr + ")");
+    const bg = await makeBackground(src, cut);
     const cutUrl = URL.createObjectURL(cut);
     $("#cmpOrig").src = origUrl; $("#cmpCut").src = cutUrl;
     show("#subj", cutUrl); show("#bg", URL.createObjectURL(bg));
@@ -245,7 +246,7 @@ async function run(f) {
     status.textContent = "";
     sfx.done();
   } catch (e) {
-    status.textContent = "Ошибка: " + e.message;
+    status.textContent = "Ошибка: " + (e?.message || e?.type || (typeof e === "string" ? e : "неизвестная")); console.error(e);
     drop.hidden = false;
     sfx.err();
   } finally {
@@ -273,6 +274,17 @@ $("#chips").addEventListener("click", e => {
   document.querySelectorAll(".chip").forEach(c => c.setAttribute("aria-pressed", c === b));
   results.style.setProperty("--pv", b.dataset.bg);
 });
+
+// Уменьшаем большое фото, чтобы телефону хватило памяти
+async function shrink(f, max = 1280) {
+  const img = await load(f);
+  const s = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+  if (s === 1) return f;
+  const c = document.createElement("canvas");
+  c.width = Math.round(img.naturalWidth * s); c.height = Math.round(img.naturalHeight * s);
+  c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+  return new Promise(r => c.toBlob(r, "image/png"));
+}
 
 function load(blob) {
   return new Promise((res, rej) => {
